@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BONKSTREET - Control Integral</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 80vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .status-indicator.online {
+            background: #38ef7d;
+        }
+
+        .status-indicator.offline {
+            background: #ff6b6b;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            overflow-x: auto;
+            background: #f9f9f9;
+            flex-shrink: 0;
+        }
+
+        .tab-button {
+            padding: 15px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            white-space: nowrap;
+            flex: 1;
+            text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            margin-bottom: -2px;
+        }
+
+        .tabs-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .form-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .btn-edit {
+            background: #667eea;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 4px;
+            touch-action: manipulation;
+        }
+
+        .paid-badge {
+            display: inline-block;
+            background: #38ef7d;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .card h3 {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card .value {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .card.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .card.danger { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); }
+        .card.warning { background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%); }
+        .card.info { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
+        .table-section {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        .table-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table th {
+            background: #f0f0f0;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #ddd;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .positive { color: #0a3622; font-weight: 700; }
+        .negative { color: #842029; font-weight: 700; }
+
+        .export-btn {
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .close-modal {
+            background: #999;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .flow-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .flow-table td {
+            padding: 10px 15px;
+        }
+
+        .flow-header {
+            font-weight: 700;
+            background: #f0f0f0;
+            border-top: 2px solid #ddd;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: 1fr; }
+            table { font-size: 12px; }
+            table th, table td { padding: 8px; }
+            .tab-button { padding: 12px 10px; font-size: 12px; }
+            .card .value { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 BONKSTREET - Control Integral <span class="status-indicator online" id="statusIndicator"></span></h1>
+            <p>Ropa + Lavado de Zapatillas + Gastos Operacionales</p>
+            <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;" id="firebaseStatus">Conectando a Firebase...</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="cambiarTab('dashboard')">📊 Dashboard</button>
+            <button class="tab-button" onclick="cambiarTab('ropa')">👕 Ropa</button>
+            <button class="tab-button" onclick="cambiarTab('lavado')">👟 Lavado</button>
+            <button class="tab-button" onclick="cambiarTab('gastos')">💸 Gastos</button>
+            <button class="tab-button" onclick="cambiarTab('analisis')">📈 Análisis</button>
+        </div>
+
+        <div class="tabs-content">
+            <!-- DASHBOARD -->
+            <div id="dashboard" class="tab-content active">
+                <div class="summary-grid">
+                    <div class="card info">
+                        <h3>👕 Pedidos Ropa</h3>
+                        <div class="value" id="totalPedidos">0</div>
+                    </div>
+                    <div class="card info">
+                        <h3>👟 Servicios Lavado</h3>
+                        <div class="value" id="totalLavados">0</div>
+                    </div>
+                    <div class="card">
+                        <h3>💵 Dinero Entrante</h3>
+                        <div class="value" id="dineroEntrante">S/ 0</div>
+                    </div>
+                    <div class="card danger">
+                        <h3>💸 Dinero Saliente</h3>
+                        <div class="value" id="dineroSaliente">S/ 0</div>
+                    </div>
+                    <div class="card success">
+                        <h3>💰 GANANCIA NETA</h3>
+                        <div class="value" id="gananciaNeta">S/ 0</div>
+                    </div>
+                </div>
+
+                <div class="table-section">
+                    <h3>🔄 Flujo de Dinero Completo</h3>
+                    <table class="flow-table">
+                        <tbody>
+                            <tr class="flow-header">
+                                <td>DINERO ENTRANTE</td>
+                                <td style="text-align: right;">Cantidad</td>
+                            </tr>
+                            <tr>
+                                <td>  Adelantos Ropa</td>
+                                <td style="text-align: right; color: green;"><strong id="flowAdelantos">S/ 0</strong></td>
+                            </tr>
+                            <tr>
+                                <td>  Saldos Ropa</td>
+                                <td style="text-align: right; color: green;"><strong id="flowSaldos">S/ 0</strong></td>
+                            </tr>
+                            <tr>
+                                <td>  Ingresos Lavado</td>
+                                <td style="text-align: right; color: green;"><strong id="flowLavado">S/ 0</strong></td>
+                            </tr>
+                            <tr class="flow-header">
+                                <td><strong>DINERO SALIENTE</strong></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td>  Gasto USA (Ropa)</td>
+                                <td style="text-align: right; color: red;"><strong id="flowGastoUSA">S/ 0</strong></td>
+                            </tr>
+                            <tr>
+                                <td>  Envío Aeropost</td>
+                                <td style="text-align: right; color: red;"><strong id="flowGastoAero">S/ 0</strong></td>
+                            </tr>
+                            <tr>
+                                <td>  Gastos Operacionales</td>
+                                <td style="text-align: right; color: red;"><strong id="flowGastosOp">S/ 0</strong></td>
+                            </tr>
+                            <tr>
+                                <td>  Gastos Lavado</td>
+                                <td style="text-align: right; color: red;"><strong id="flowGastosLav">S/ 0</strong></td>
+                            </tr>
+                            <tr style="background: #f0f0f0; border-top: 3px solid #ddd; font-weight: 700;">
+                                <td>GANANCIA NETA TOTAL</td>
+                                <td style="text-align: right; font-size: 18px;" id="flowGanancia">S/ 0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ROPA -->
+            <div id="ropa" class="tab-content">
+                <div class="form-section">
+                    <h3>➕ Nuevo Pedido de Ropa</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="ropaCliente" placeholder="Nombre">
+                        </div>
+                        <div class="form-group">
+                            <label>Producto</label>
+                            <input type="text" id="ropaProducto" placeholder="Ej: Medias Supreme">
+                        </div>
+                        <div class="form-group">
+                            <label>Adelanto (SOL)</label>
+                            <input type="number" id="ropaAdelanto" step="0.01" placeholder="150">
+                        </div>
+                        <div class="form-group">
+                            <label>Costo USA (USD)</label>
+                            <input type="number" id="ropaCostoUSA" step="0.01" placeholder="50">
+                        </div>
+                        <div class="form-group">
+                            <label>Aeropost (USD)</label>
+                            <input type="number" id="ropaCostoAero" step="0.01" placeholder="15">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de Cambio</label>
+                            <input type="number" id="ropaTipoCambio" value="3.85" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsable</label>
+                            <select id="ropaResponsable">
+                                <option value="Katya">Katya</option>
+                                <option value="Diego">Diego</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="agregarRopa()">Registrar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-btn">
+                    <button class="btn btn-success" onclick="exportarExcel('ropa')">📊 Descargar Ropa</button>
+                </div>
+
+                <div class="table-section">
+                    <h3>📋 Pedidos de Ropa</h3>
+                    <table id="ropaTable">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Producto</th>
+                                <th>Adelanto</th>
+                                <th>Saldo</th>
+                                <th>Total Recibido</th>
+                                <th>Gasto</th>
+                                <th>Ganancia</th>
+                                <th>Responsable</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="ropaEmpty" class="empty-state">Sin pedidos</div>
+                </div>
+            </div>
+
+            <!-- LAVADO DE ZAPATILLAS -->
+            <div id="lavado" class="tab-content">
+                <div class="form-section">
+                    <h3>➕ Nuevo Servicio de Lavado</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Cliente/Persona</label>
+                            <input type="text" id="lavCliente" placeholder="Nombre">
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad de Zapatillas</label>
+                            <input type="number" id="lavCantidad" step="1" placeholder="2">
+                        </div>
+                        <div class="form-group">
+                            <label>Precio por Zapatilla (SOL)</label>
+                            <input type="number" id="lavPrecio" step="0.01" placeholder="25">
+                        </div>
+                        <div class="form-group">
+                            <label>Gasto de Materiales (SOL)</label>
+                            <input type="number" id="lavGasto" step="0.01" placeholder="5">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsable</label>
+                            <select id="lavResponsable">
+                                <option value="Katya">Katya</option>
+                                <option value="Diego">Diego</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="agregarLavado()">Registrar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-btn">
+                    <button class="btn btn-success" onclick="exportarExcel('lavado')">📊 Descargar Lavado</button>
+                </div>
+
+                <div class="table-section">
+                    <h3>👟 Servicios de Lavado</h3>
+                    <table id="lavadoTable">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Cantidad</th>
+                                <th>Precio/Unidad</th>
+                                <th>Total Ingreso</th>
+                                <th>Gasto Material</th>
+                                <th>Ganancia</th>
+                                <th>Responsable</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="lavadoEmpty" class="empty-state">Sin servicios</div>
+                </div>
+            </div>
+
+            <!-- GASTOS OPERACIONALES -->
+            <div id="gastos" class="tab-content">
+                <div class="form-section">
+                    <h3>➕ Nuevo Gasto Operacional</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <input type="text" id="gastoDesc" placeholder="Ej: Bolsas de envío">
+                        </div>
+                        <div class="form-group">
+                            <label>Categoría</label>
+                            <select id="gastoCategoria">
+                                <option value="Bolsas/Empaques">Bolsas/Empaques</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Servicios">Servicios</option>
+                                <option value="Materiales">Materiales</option>
+                                <option value="Otros">Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto (SOL)</label>
+                            <input type="number" id="gastoMonto" step="0.01" placeholder="50">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsable</label>
+                            <select id="gastoResponsable">
+                                <option value="Katya">Katya</option>
+                                <option value="Diego">Diego</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="agregarGasto()">Registrar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-btn">
+                    <button class="btn btn-success" onclick="exportarExcel('gastos')">📊 Descargar Gastos</button>
+                </div>
+
+                <div class="table-section">
+                    <h3>💸 Gastos Operacionales</h3>
+                    <table id="gastosTable">
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Categoría</th>
+                                <th>Monto</th>
+                                <th>Responsable</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="gastosEmpty" class="empty-state">Sin gastos</div>
+                </div>
+            </div>
+
+            <!-- ANÁLISIS -->
+            <div id="analisis" class="tab-content">
+                <div class="table-section">
+                    <h3>👥 Resumen por Responsable</h3>
+                    <table id="responsableTable">
+                        <thead>
+                            <tr>
+                                <th>Responsable</th>
+                                <th>Pedidos Ropa</th>
+                                <th>Ingresos Ropa</th>
+                                <th>Gastos Ropa</th>
+                                <th>Lavados</th>
+                                <th>Ingresos Lavado</th>
+                                <th>Gastos Oper.</th>
+                                <th>TOTAL GANANCIA</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div class="table-section">
+                    <h3>📊 Resumen General</h3>
+                    <table id="resumenTable">
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th style="text-align: right;">Cantidad (SOL)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL para registrar saldo de ropa -->
+    <div id="saldoModal" class="modal">
+        <div class="modal-content">
+            <h2>💵 Registrar Saldo Pagado</h2>
+            <div style="margin-bottom: 25px; color: #666; line-height: 1.8; font-size: 14px;">
+                <div style="margin: 8px 0;"><strong>Cliente:</strong> <span id="saldoCliente">--</span></div>
+                <div style="margin: 8px 0;"><strong>Gasto Total:</strong> <span id="saldoGastoTotal">--</span></div>
+                <div style="margin: 8px 0;"><strong>Adelanto:</strong> <span id="saldoAdelanto">--</span></div>
+                <div style="margin: 8px 0; background: #f0f0f0; padding: 8px; border-radius: 4px;">
+                    <strong>Falta por pagar:</strong> <span id="saldoFalta" style="color: #667eea; font-size: 16px;">--</span>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label style="font-size: 16px; font-weight: 700;">Saldo que pagó el cliente (SOL)</label>
+                <input type="number" id="saldoInput" step="0.01" placeholder="0" style="font-size: 18px; padding: 15px; height: 55px; margin-top: 10px;">
+            </div>
+            <div style="display: flex; gap: 10px; flex-direction: column;">
+                <button class="btn btn-success" onclick="guardarSaldo()" style="padding: 15px; font-size: 16px; height: 55px;">✓ Guardar Saldo</button>
+                <button class="close-modal" onclick="cerrarModal()" style="padding: 15px; font-size: 16px; height: 55px;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIzaSyC0n64StWIdGzBiTbgr3gotBZDpE585BM",
+            authDomain: "bonkstreet-control.firebaseapp.com",
+            projectId: "bonkstreet-control",
+            storageBucket: "bonkstreet-control.firebasestorage.app",
+            messagingSenderId: "605005226944",
+            appId: "1:605005226944:web:ccd3d18978b917883e5e25"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database(app);
+
+        let saldoEditando = null;
+        let isConnected = false;
+
+        // Monitor Firebase connection
+        const connectedRef = db.ref('.info/connected');
+        connectedRef.on('value', (snap) => {
+            if (snap.val() === true) {
+                isConnected = true;
+                document.getElementById('statusIndicator').className = 'status-indicator online';
+                document.getElementById('firebaseStatus').textContent = '✓ Conectado a Firebase';
+                actualizarUI();
+            } else {
+                isConnected = false;
+                document.getElementById('statusIndicator').className = 'status-indicator offline';
+                document.getElementById('firebaseStatus').textContent = '✗ Desconectado - Modo offline';
+            }
+        });
+
+        // Cargar datos desde Firebase
+        function cargarDatos(clave) {
+            return new Promise((resolve) => {
+                db.ref(`bonkstreet/${clave}`).on('value', (snapshot) => {
+                    const datos = snapshot.val() || {};
+                    resolve(Object.values(datos));
+                });
+            });
+        }
+
+        // Guardar dato en Firebase
+        function guardarDato(clave, datos) {
+            const id = datos.id || Date.now();
+            db.ref(`bonkstreet/${clave}/${id}`).set(datos);
+        }
+
+        // Eliminar dato de Firebase
+        function eliminarDato(clave, id) {
+            db.ref(`bonkstreet/${clave}/${id}`).remove();
+        }
+
+        function cambiarTab(tabName) {
+            const allTabs = document.querySelectorAll('.tab-content');
+            const allBtns = document.querySelectorAll('.tab-button');
+
+            allTabs.forEach(tab => tab.classList.remove('active'));
+            allBtns.forEach(btn => btn.classList.remove('active'));
+
+            const selectedTab = document.getElementById(tabName);
+            if (selectedTab) selectedTab.classList.add('active');
+
+            const selectedBtn = document.querySelector(`button[onclick="cambiarTab('${tabName}')"]`);
+            if (selectedBtn) selectedBtn.classList.add('active');
+        }
+
+        function agregarRopa() {
+            const cliente = document.getElementById('ropaCliente').value.trim();
+            const producto = document.getElementById('ropaProducto').value.trim();
+            const adelanto = parseFloat(document.getElementById('ropaAdelanto').value) || 0;
+            const costoUSA = parseFloat(document.getElementById('ropaCostoUSA').value) || 0;
+            const costoAero = parseFloat(document.getElementById('ropaCostoAero').value) || 0;
+            const tipoCambio = parseFloat(document.getElementById('ropaTipoCambio').value) || 3.85;
+            const responsable = document.getElementById('ropaResponsable').value;
+
+            if (!cliente || !producto || adelanto <= 0 || costoUSA <= 0) {
+                alert('Completa todos los campos');
+                return;
+            }
+
+            guardarDato('ropa', {
+                id: Date.now(),
+                cliente, producto, adelanto, costoUSA, costoAero, tipoCambio, responsable,
+                fecha: new Date().toISOString().split('T')[0],
+                saldoPagado: 0
+            });
+
+            document.getElementById('ropaCliente').value = '';
+            document.getElementById('ropaProducto').value = '';
+            document.getElementById('ropaAdelanto').value = '';
+            document.getElementById('ropaCostoUSA').value = '';
+            document.getElementById('ropaCostoAero').value = '';
+        }
+
+        function agregarLavado() {
+            const cliente = document.getElementById('lavCliente').value.trim();
+            const cantidad = parseInt(document.getElementById('lavCantidad').value) || 0;
+            const precio = parseFloat(document.getElementById('lavPrecio').value) || 0;
+            const gasto = parseFloat(document.getElementById('lavGasto').value) || 0;
+            const responsable = document.getElementById('lavResponsable').value;
+
+            if (!cliente || cantidad <= 0 || precio <= 0) {
+                alert('Completa todos los campos');
+                return;
+            }
+
+            guardarDato('lavado', {
+                id: Date.now(),
+                cliente, cantidad, precio, gasto, responsable,
+                fecha: new Date().toISOString().split('T')[0]
+            });
+
+            document.getElementById('lavCliente').value = '';
+            document.getElementById('lavCantidad').value = '';
+            document.getElementById('lavPrecio').value = '';
+            document.getElementById('lavGasto').value = '';
+        }
+
+        function agregarGasto() {
+            const desc = document.getElementById('gastoDesc').value.trim();
+            const categoria = document.getElementById('gastoCategoria').value;
+            const monto = parseFloat(document.getElementById('gastoMonto').value) || 0;
+            const responsable = document.getElementById('gastoResponsable').value;
+
+            if (!desc || monto <= 0) {
+                alert('Completa todos los campos');
+                return;
+            }
+
+            guardarDato('gastos', {
+                id: Date.now(),
+                desc, categoria, monto, responsable,
+                fecha: new Date().toISOString().split('T')[0]
+            });
+
+            document.getElementById('gastoDesc').value = '';
+            document.getElementById('gastoMonto').value = '';
+        }
+
+        function abrirModalSaldo(id) {
+            db.ref(`bonkstreet/ropa/${id}`).once('value', (snapshot) => {
+                const pedido = snapshot.val();
+                if (!pedido) return;
+
+                saldoEditando = id;
+                const gastoTotal = (pedido.costoUSA + pedido.costoAero) * pedido.tipoCambio;
+                const faltaPagar = Math.max(0, gastoTotal - pedido.adelanto);
+
+                document.getElementById('saldoCliente').textContent = pedido.cliente;
+                document.getElementById('saldoGastoTotal').textContent = `S/ ${gastoTotal.toFixed(2)}`;
+                document.getElementById('saldoAdelanto').textContent = `S/ ${pedido.adelanto.toFixed(2)}`;
+                document.getElementById('saldoFalta').textContent = `S/ ${faltaPagar.toFixed(2)}`;
+                document.getElementById('saldoInput').value = pedido.saldoPagado || '';
+                document.getElementById('saldoInput').focus();
+                document.getElementById('saldoModal').classList.add('active');
+            });
+        }
+
+        function guardarSaldo() {
+            const saldo = parseFloat(document.getElementById('saldoInput').value) || 0;
+            if (saldo < 0) {
+                alert('El saldo debe ser mayor o igual a 0');
+                return;
+            }
+
+            db.ref(`bonkstreet/ropa/${saldoEditando}`).update({ saldoPagado: saldo });
+            cerrarModal();
+        }
+
+        function cerrarModal() {
+            document.getElementById('saldoModal').classList.remove('active');
+            saldoEditando = null;
+        }
+
+        function eliminarItem(clave, id) {
+            if (confirm('¿Eliminar este item?')) {
+                eliminarDato(clave, id);
+            }
+        }
+
+        async function actualizarUI() {
+            const ropa = await cargarDatos('ropa');
+            const lavado = await cargarDatos('lavado');
+            const gastos = await cargarDatos('gastos');
+
+            // Cálculos Ropa
+            const totalAdelantos = ropa.reduce((s, p) => s + p.adelanto, 0);
+            const totalSaldos = ropa.reduce((s, p) => s + p.saldoPagado, 0);
+            const totalIngresosRopa = totalAdelantos + totalSaldos;
+            const totalGastoUSA = ropa.reduce((s, p) => s + (p.costoUSA * p.tipoCambio), 0);
+            const totalGastoAero = ropa.reduce((s, p) => s + (p.costoAero * p.tipoCambio), 0);
+            const totalGastosRopa = totalGastoUSA + totalGastoAero;
+
+            // Cálculos Lavado
+            const totalIngresosLavado = lavado.reduce((s, l) => s + (l.cantidad * l.precio), 0);
+            const totalGastosLavado = lavado.reduce((s, l) => s + (l.cantidad * l.gasto), 0);
+
+            // Cálculos Gastos
+            const totalGastosOperacionales = gastos.reduce((s, g) => s + g.monto, 0);
+
+            // Totales
+            const dineroEntrante = totalIngresosRopa + totalIngresosLavado;
+            const dineroSaliente = totalGastosRopa + totalGastosLavado + totalGastosOperacionales;
+            const gananciaNeta = dineroEntrante - dineroSaliente;
+
+            // Actualizar Dashboard
+            document.getElementById('totalPedidos').textContent = ropa.length;
+            document.getElementById('totalLavados').textContent = lavado.length;
+            document.getElementById('dineroEntrante').textContent = `S/ ${dineroEntrante.toFixed(2)}`;
+            document.getElementById('dineroSaliente').textContent = `S/ ${dineroSaliente.toFixed(2)}`;
+            document.getElementById('gananciaNeta').textContent = `S/ ${gananciaNeta.toFixed(2)}`;
+
+            document.getElementById('flowAdelantos').textContent = `S/ ${totalAdelantos.toFixed(2)}`;
+            document.getElementById('flowSaldos').textContent = `S/ ${totalSaldos.toFixed(2)}`;
+            document.getElementById('flowLavado').textContent = `S/ ${totalIngresosLavado.toFixed(2)}`;
+            document.getElementById('flowGastoUSA').textContent = `S/ ${totalGastoUSA.toFixed(2)}`;
+            document.getElementById('flowGastoAero').textContent = `S/ ${totalGastoAero.toFixed(2)}`;
+            document.getElementById('flowGastosOp').textContent = `S/ ${totalGastosOperacionales.toFixed(2)}`;
+            document.getElementById('flowGastosLav').textContent = `S/ ${totalGastosLavado.toFixed(2)}`;
+            document.getElementById('flowGanancia').textContent = `S/ ${gananciaNeta.toFixed(2)}`;
+
+            // Tabla Ropa
+            const ropaBody = document.getElementById('ropaTable').querySelector('tbody');
+            ropaBody.innerHTML = '';
+            ropa.forEach(p => {
+                const gastoTotal = (p.costoUSA + p.costoAero) * p.tipoCambio;
+                const totalRecibido = p.adelanto + p.saldoPagado;
+                const ganancia = totalRecibido - gastoTotal;
+                const pagado100 = totalRecibido >= gastoTotal && Math.abs(totalRecibido - gastoTotal) < 0.01;
+
+                ropaBody.innerHTML += `
+                    <tr>
+                        <td>${p.cliente}</td>
+                        <td>${p.producto}</td>
+                        <td>S/ ${p.adelanto.toFixed(2)}</td>
+                        <td>S/ ${p.saldoPagado.toFixed(2)}<br>
+                            <button class="btn-edit" onclick="abrirModalSaldo(${p.id})">
+                                ${p.saldoPagado > 0 ? '✏️ Editar' : '➕ Registrar'}
+                            </button>
+                            ${pagado100 ? '<br><span class="paid-badge">✓ 100%</span>' : ''}
+                        </td>
+                        <td>S/ ${totalRecibido.toFixed(2)}</td>
+                        <td>S/ ${gastoTotal.toFixed(2)}</td>
+                        <td><span class="${ganancia >= 0 ? 'positive' : 'negative'}">S/ ${ganancia.toFixed(2)}</span></td>
+                        <td>${p.responsable}</td>
+                        <td><button class="btn btn-danger" onclick="eliminarItem('ropa', ${p.id})">×</button></td>
+                    </tr>
+                `;
+            });
+            document.getElementById('ropaEmpty').style.display = ropa.length ? 'none' : 'block';
+
+            // Tabla Lavado
+            const lavBody = document.getElementById('lavadoTable').querySelector('tbody');
+            lavBody.innerHTML = '';
+            lavado.forEach(l => {
+                const ingreso = l.cantidad * l.precio;
+                const gasto = l.cantidad * l.gasto;
+                const ganancia = ingreso - gasto;
+
+                lavBody.innerHTML += `
+                    <tr>
+                        <td>${l.cliente}</td>
+                        <td>${l.cantidad}</td>
+                        <td>S/ ${l.precio.toFixed(2)}</td>
+                        <td>S/ ${ingreso.toFixed(2)}</td>
+                        <td>S/ ${gasto.toFixed(2)}</td>
+                        <td><span class="positive">S/ ${ganancia.toFixed(2)}</span></td>
+                        <td>${l.responsable}</td>
+                        <td><button class="btn btn-danger" onclick="eliminarItem('lavado', ${l.id})">×</button></td>
+                    </tr>
+                `;
+            });
+            document.getElementById('lavadoEmpty').style.display = lavado.length ? 'none' : 'block';
+
+            // Tabla Gastos
+            const gastosBody = document.getElementById('gastosTable').querySelector('tbody');
+            gastosBody.innerHTML = '';
+            gastos.forEach(g => {
+                gastosBody.innerHTML += `
+                    <tr>
+                        <td>${g.desc}</td>
+                        <td>${g.categoria}</td>
+                        <td>S/ ${g.monto.toFixed(2)}</td>
+                        <td>${g.responsable}</td>
+                        <td>${g.fecha}</td>
+                        <td><button class="btn btn-danger" onclick="eliminarItem('gastos', ${g.id})">×</button></td>
+                    </tr>
+                `;
+            });
+            document.getElementById('gastosEmpty').style.display = gastos.length ? 'none' : 'block';
+
+            // Resumen por Responsable
+            const respBody = document.getElementById('responsableTable').querySelector('tbody');
+            respBody.innerHTML = '';
+            const porResp = {};
+
+            ropa.forEach(p => {
+                if (!porResp[p.responsable]) {
+                    porResp[p.responsable] = { pedidos: 0, ingRopa: 0, gasRopa: 0, lavados: 0, ingLav: 0, gasOp: 0 };
+                }
+                porResp[p.responsable].pedidos += 1;
+                porResp[p.responsable].ingRopa += p.adelanto + p.saldoPagado;
+                porResp[p.responsable].gasRopa += (p.costoUSA + p.costoAero) * p.tipoCambio;
+            });
+
+            lavado.forEach(l => {
+                if (!porResp[l.responsable]) {
+                    porResp[l.responsable] = { pedidos: 0, ingRopa: 0, gasRopa: 0, lavados: 0, ingLav: 0, gasOp: 0 };
+                }
+                porResp[l.responsable].lavados += 1;
+                porResp[l.responsable].ingLav += l.cantidad * l.precio;
+            });
+
+            gastos.forEach(g => {
+                if (!porResp[g.responsable]) {
+                    porResp[g.responsable] = { pedidos: 0, ingRopa: 0, gasRopa: 0, lavados: 0, ingLav: 0, gasOp: 0 };
+                }
+                porResp[g.responsable].gasOp += g.monto;
+            });
+
+            Object.keys(porResp).forEach(resp => {
+                const d = porResp[resp];
+                const ganancia = (d.ingRopa + d.ingLav) - (d.gasRopa + d.gasOp);
+
+                respBody.innerHTML += `
+                    <tr>
+                        <td><strong>${resp}</strong></td>
+                        <td>${d.pedidos}</td>
+                        <td>S/ ${d.ingRopa.toFixed(2)}</td>
+                        <td>S/ ${d.gasRopa.toFixed(2)}</td>
+                        <td>${d.lavados}</td>
+                        <td>S/ ${d.ingLav.toFixed(2)}</td>
+                        <td>S/ ${d.gasOp.toFixed(2)}</td>
+                        <td><strong class="${ganancia >= 0 ? 'positive' : 'negative'}">S/ ${ganancia.toFixed(2)}</strong></td>
+                    </tr>
+                `;
+            });
+
+            // Resumen General
+            const resBody = document.getElementById('resumenTable').querySelector('tbody');
+            resBody.innerHTML = `
+                <tr style="background: #f0f0f0; font-weight: 700;">
+                    <td>INGRESOS</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>  Adelantos Ropa</td>
+                    <td style="text-align: right; color: green;">S/ ${totalAdelantos.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>  Saldos Ropa</td>
+                    <td style="text-align: right; color: green;">S/ ${totalSaldos.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>  Ingresos Lavado</td>
+                    <td style="text-align: right; color: green;">S/ ${totalIngresosLavado.toFixed(2)}</td>
+                </tr>
+                <tr style="background: #f0f0f0; font-weight: 700;">
+                    <td>EGRESOS</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>  Gasto USA</td>
+                    <td style="text-align: right; color: red;">S/ ${totalGastoUSA.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>  Aeropost</td>
+                    <td style="text-align: right; color: red;">S/ ${totalGastoAero.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>  Gastos Lavado</td>
+                    <td style="text-align: right; color: red;">S/ ${totalGastosLavado.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td>  Gastos Operacionales</td>
+                    <td style="text-align: right; color: red;">S/ ${totalGastosOperacionales.toFixed(2)}</td>
+                </tr>
+                <tr style="background: #f0f0f0; font-weight: 700; border-top: 3px solid #ddd;">
+                    <td>GANANCIA NETA TOTAL</td>
+                    <td style="text-align: right; font-size: 16px;" class="${gananciaNeta >= 0 ? 'positive' : 'negative'}">S/ ${gananciaNeta.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+
+        function exportarExcel(tipo) {
+            cargarDatos(tipo).then(datos => {
+                let arrDatos = [];
+
+                if (tipo === 'ropa') {
+                    arrDatos = datos.map(p => ({
+                        Cliente: p.cliente,
+                        Producto: p.producto,
+                        'Adelanto (SOL)': p.adelanto,
+                        'Saldo Pagado (SOL)': p.saldoPagado,
+                        'Total Recibido (SOL)': p.adelanto + p.saldoPagado,
+                        'Costo USA (USD)': p.costoUSA,
+                        'Costo USA (SOL)': (p.costoUSA * p.tipoCambio).toFixed(2),
+                        'Aeropost (USD)': p.costoAero,
+                        'Aeropost (SOL)': (p.costoAero * p.tipoCambio).toFixed(2),
+                        'Total Gastos (SOL)': ((p.costoUSA + p.costoAero) * p.tipoCambio).toFixed(2),
+                        'Ganancia (SOL)': ((p.adelanto + p.saldoPagado) - (p.costoUSA + p.costoAero) * p.tipoCambio).toFixed(2),
+                        Responsable: p.responsable,
+                        Fecha: p.fecha
+                    }));
+                } else if (tipo === 'lavado') {
+                    arrDatos = datos.map(l => ({
+                        Cliente: l.cliente,
+                        Cantidad: l.cantidad,
+                        'Precio/Unidad (SOL)': l.precio,
+                        'Total Ingreso (SOL)': (l.cantidad * l.precio).toFixed(2),
+                        'Gasto Material (SOL)': (l.cantidad * l.gasto).toFixed(2),
+                        'Ganancia (SOL)': (l.cantidad * (l.precio - l.gasto)).toFixed(2),
+                        Responsable: l.responsable,
+                        Fecha: l.fecha
+                    }));
+                } else if (tipo === 'gastos') {
+                    arrDatos = datos.map(g => ({
+                        Descripción: g.desc,
+                        Categoría: g.categoria,
+                        'Monto (SOL)': g.monto,
+                        Responsable: g.responsable,
+                        Fecha: g.fecha
+                    }));
+                }
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(arrDatos), "Data");
+                XLSX.writeFile(wb, `BONKSTREET-${tipo}-${new Date().toISOString().split('T')[0]}.xlsx`);
+            });
+        }
+
+        document.getElementById('ropaTipoCambio').addEventListener('change', actualizarUI);
+        window.addEventListener('load', actualizarUI);
+
+        // Actualizar cada 2 segundos para sincronización en tiempo real
+        setInterval(actualizarUI, 2000);
+    </script>
+</body>
+</html>
